@@ -5,7 +5,7 @@ $result = mysqli_query($conn,$sql);
 $a['categories'] = array();
 $a['data'] = array();
 while ($info = mysqli_fetch_array($result)){
-    array_push($a['categories'],$info['carName']);
+    array_push($a['categories'],$info['carName']);//往数组里放数据
     array_push($a['data'],$info['carNum']);
 }
 
