@@ -1,22 +1,37 @@
 <?php
-include_once 'checkLogin.php';
-include_once 'conn.php';
-$id = $_GET['id'] ?? '';
-$code = $_GET['code'];//用户提交的验证码
-//判断验证码是否正确
-if (strtolower($_SESSION['captcha']) == strtolower($code)){
-    $_SESSION['captcha'] = '';//验证码正确，验证码只能使用一次
+session_start();
 
-}else{
-    $_SESSION['captcha'] = '';
-    echo "<script>alert('验证码错误');location.href='index.php';</script>";//history.back();程序后退一步
-    exit;//退出程序
-}
-
-if (!is_numeric($id) || $id == ''){
-    echo "<script>alert('参数错误');history.back();</script>";
+$a = array();
+if(!isset($_SESSION['loggedUsername']) || !$_SESSION['loggedUsername']){
+    $a['error'] = 1;
+    $a['errMsg'] = '请登录后再访问本页面';
+    echo json_encode($a);//输出json对象
     exit;
 }
+
+include_once 'conn.php';
+$id = $_GET['id'] ?? '';
+//判断ID参数是否正确
+if (!is_numeric($id) || $id == ''){
+    $a['error'] = 1;
+    $a['errMsg'] = '车辆ID参数错误';
+    echo json_encode($a);//输出json对象
+    exit;
+}
+
+//判断验证码是否正确
+$code = $_GET['code'];//用户提交的验证码
+if (strtolower($_SESSION['captcha']) == strtolower($code) and !empty($code)){
+    $_SESSION['captcha'] = '';//验证码正确，验证码只能使用一次
+}else{
+    $_SESSION['captcha'] = '';
+    $a['error'] = 1;
+    $a['errMsg'] = '验证码错误';
+    echo json_encode($a);//输出json对象
+    exit;
+}
+
+
 //投票条件判断： 每人每天只能给一辆车最多投5票
 //第1个条件：
 //$sql = "select * from votedetail where userID = ". $_SESSION['loggedUserID']. " and carID=$id and voteTime = '". date("Y-m-d") . "'";
@@ -34,7 +49,9 @@ $result = mysqli_query($conn,$sql);
 $info = mysqli_fetch_array($result);
 if($info['num'] == 5){
     //说明当前用户已投过5票
-    echo "<script>alert('当前用户给当前车辆已投过5票了');history.back()</script>";
+    $a['error'] = 1;
+    $a['errMsg'] = '当前用户给当前车辆已投过5票了';
+    echo json_encode($a);//输出json对象
     exit;
 }
 //第2个条件： 每人每天只能给3辆车投票
@@ -43,7 +60,9 @@ $result = mysqli_query($conn,$sql);
 $num = mysqli_num_rows($result);
 if($num >= 3){
     //排除当前投票车辆，说明是在给第4辆车投票了
-    echo "<script>alert('每人每天只能给3辆车投票');history.back()</script>";
+    $a['error'] = 1;
+    $a['errMsg'] = '每人每天只能给3辆车投票';
+    echo json_encode($a);//输出json对象
     exit;
 }
 //第3个条件： 2次投票之间要求间隔60s以上
@@ -55,7 +74,9 @@ if(mysqli_num_rows($result)){
     $info = mysqli_fetch_array($result);
     if (time() - $info['voteTime'] <= 60){
         //说明时间间隔小于60s，不能投票
-        echo "<script>alert('2次投票间隔必须大于60s');history.back()</script>";
+        $a['error'] = 1;
+        $a['errMsg'] = '2次投票间隔必须大于60s';
+        echo json_encode($a);//输出json对象
         exit;
     }
 }
@@ -65,7 +86,9 @@ $result = mysqli_query($conn,$sql);
 //$num = mysqli_num_rows($result);
 if(mysqli_num_rows($result) >= 10 ){
     //说明当前IP曾投过15票
-    echo "<script>alert('1个IP每天只能投15票');history.back()</script>";
+    $a['error'] = 1;
+    $a['errMsg'] = '1个IP每天只能投15票';
+    echo json_encode($a);//输出json对象
     exit;
 }
 
@@ -80,10 +103,14 @@ $result1 = mysqli_query($conn,$sql1);
 $result2 = mysqli_query($conn,$sql2);
 if ($result1 and $result2){
     mysqli_commit($conn);//提交操作
-    echo "<script>alert('投票成功');location.href='index.php';</script>";
+    $a['error'] = 0;
+    echo json_encode($a);//输出json对象
+
 }else{
     mysqli_rollback($conn);//回滚操作
-    echo "<script>alert('投票失败');history.back();</script>";
+    $a['error'] = 1;
+    $a['errMsg'] = '投票失败';
+    echo json_encode($a);//输出json对象
 }
 
 function getip() {
